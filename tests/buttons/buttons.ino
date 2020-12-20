@@ -1,42 +1,40 @@
-#define button_state_reader 0
+#include <GyverTimers.h>
+
 #define analogInput 0
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <util/atomic.h>
-#include <util/delay.h>
-#include <stdbool.h>
 
-volatile uint8_t state = 0;
-uint8_t oldPINC = 0xFF;
-int val;
+#define BUTTON_1 735
+#define BUTTON_2 205
 
-void pciSetup(byte pin) {
-  *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // Разрешаем PCINT для указанного пина
-  PCIFR  |= bit (digitalPinToPCICRbit(pin)); // Очищаем признак запроса прерывания для соответствующей группы пинов
-  PCICR  |= bit (digitalPinToPCICRbit(pin)); // Разрешаем PCINT для соответствующей группы пинов
+volatile int value, counter;
+volatile byte analogValuesWindow = 5;
+volatile unsigned long timer;
+
+void setup()
+{
+  Serial.begin(9600);
+  Timer2.setFrequency(100);
+  Timer2.enableISR(CHANNEL_A);
 }
 
-ISR (PCINT1_vect) { // Обработчик запросов прерывания от пинов D8..D13
-  uint8_t changedbits = PINC ^ oldPINC;
-  oldPINC = PINC;
+ISR(TIMER2_A)
+{
+  value = analogRead(analogInput);
 
-  if (changedbits & (1 << PC0)) { // Изменился D8
-    state++; // Зажигаем светодиод
+  if ((value >= BUTTON_1 - analogValuesWindow) && 
+      (value <= BUTTON_1 + analogValuesWindow))
+  {
+    counter++;
+  }
+
+  if ((value >= BUTTON_2 - analogValuesWindow) && 
+      (value <= BUTTON_2 + analogValuesWindow))
+  {
+    counter--;
   }
 }
 
-void setup() {
-  Serial.begin(9600);
-  pciSetup(analogInput);
-}
-
-void loop() {
-  Serial.println(state);
-  delay(1000);
-
-
-  val = analogRead(button_state_reader);
-//  val = map(val,0,1023, 0, 20);
-//  val = constrain(val, 0, 20);
-//  Serial.println(state);
+void loop()
+{
+  Serial.println(counter);
+  delay(5000);
 }
