@@ -57,21 +57,21 @@ const unsigned char PROGMEM frame26 [] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x
 
 const unsigned char PROGMEM frame27 [] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x55, 0x55, 0x40, 0x0F, 0xFF, 0xFF, 0xF0, 0x18, 0x00, 0x00, 0x18, 0x10, 0x00, 0x00, 0x08, 0x11, 0x40, 0x00, 0x08, 0x13, 0xE0, 0x00, 0x08, 0x13, 0xE0, 0x7F, 0x88, 0x13, 0xE0, 0x00, 0x08, 0x11, 0x40, 0x00, 0x08, 0x10, 0x00, 0x00, 0x08, 0x10, 0x00, 0x00, 0x08, 0x11, 0xCE, 0x73, 0x88, 0x11, 0x4A, 0x52, 0x88, 0x10, 0x00, 0x00, 0x08, 0x13, 0xFE, 0x00, 0x08, 0x10, 0x00, 0x00, 0x08, 0x10, 0x00, 0x00, 0x08, 0x1A, 0xAA, 0xAA, 0xB8, 0x07, 0xFF, 0xFF, 0xE0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-#define UP_BUTTON               5
-#define DOWN_BUTTON             10
+#define UP_BUTTON               3
+#define DOWN_BUTTON             6
 
 #define BUTTON_STATE_READER     0
 
 unsigned long time;
-unsigned long buttonPressedTime;
+volatile unsigned long buttonPressedTime;
 
 bool isButtonPressed = 0;
-int button;
+volatile int button;
 
-int currentWindowNumber = 0;
+volatile int currentWindowNumber = 0;
 int currentFrame = 0;
 int amoutOfFramesPerAnimation = 3;
-int frameTime = 300; //milliseconds
+int frameTime = 400; //milliseconds
 
 char screenName[3][50] = 
 {
@@ -105,6 +105,9 @@ void draw(void)
   u8g.setFont(u8g_font_helvR08);
   u8g.setPrintPos(128/2 - u8g.getStrWidth(screenName[currentWindowNumber])/2,55);
   u8g.print(screenName[currentWindowNumber]);
+  /* Draw additional info */
+  u8g.setPrintPos(128 - 15,15);
+  u8g.print(currentWindowNumber + 1);
   /* Draw image */
   u8g.drawBitmapP(48, 3, 4, 32, framebuffer[currentWindowNumber][currentFrame]);
 }
@@ -126,16 +129,8 @@ void clearDisplay() {
   } while ( u8g.nextPage() );
 };
 
-void setup() {
-  clearDisplay();
-  Serial.begin(9600);
-}
-
-void loop() {
-  button = analogRead(BUTTON_STATE_READER);
-  button = map(button, 0, 1023, 0, 20);
-  button = constrain(button, 0, 20);
-  Serial.println(button);
+void changeCurrentWindow(int button)
+{
   if (button == UP_BUTTON)
   {
     if (currentWindowNumber == 2)
@@ -146,6 +141,7 @@ void loop() {
     {
       currentWindowNumber++;
     }
+    buttonPressedTime = millis();
     button = 0;
   }
 
@@ -159,8 +155,35 @@ void loop() {
     {
       currentWindowNumber--;
     }
+    buttonPressedTime = millis();
     button = 0;
   }
+}
+
+void setup() {
+  clearDisplay();
+  Serial.begin(9600);
+  Timer2.setFrequency(400);
+  Timer2.enableISR(CHANNEL_A);
+}
+
+ISR(TIMER2_A)
+{
+  if(millis() - buttonPressedTime > 400){
+    button = analogRead(BUTTON_STATE_READER);
+    button = map(button, 0, 1023, 0, 20);
+    button = constrain(button, 0, 20);
+    if (button != 0)
+    {
+      changeCurrentWindow(button);
+    }
+  }
+}
+
+void loop() {
+
+//  Serial.println(button);
+
   
   if (millis() - time > frameTime)
   {
