@@ -1,6 +1,7 @@
 #include "U8glib.h"
 #include <GyverTimers.h>
-#include <Vector.h>
+#include<Vector.h>
+
 U8GLIB_SH1106_128X64 u8g(U8G_I2C_OPT_NONE);
 #define UP_BUTTON               3
 #define DOWN_BUTTON             6
@@ -25,20 +26,19 @@ char screenName[3][50] =
   "Settings"
 };
 
-template <typename T1, typename T2>
 struct Window
 {
-  Window(T1 *title_w, T2 animation_w[][128])
+  Window(char *title_w, unsigned char animation_w[][128])
   {
     this->title = title_w;
     this->animation = animation_w;
   };
+  Window();
   
   Window *parent;
-  Vector<Window> children;
   
-  T1 *title;
-  T2 (*animation)[128];
+  char *title;
+  unsigned char (*animation)[128];
 };
 
 const unsigned char PROGMEM framebuffer[3][3][128] = 
@@ -59,10 +59,13 @@ const unsigned char PROGMEM framebuffer[3][3][128] =
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x80, 0x00, 0x00, 0x23, 0xC0, 0x00, 0x00, 0xFE, 0x80, 0x00, 0x00, 0x5C, 0xF8, 0x00, 0x00, 0x60, 0x7C, 0x00, 0x00, 0x63, 0x0C, 0x00, 0x03, 0xCF, 0x98, 0x00, 0x03, 0x18, 0x98, 0x00, 0x03, 0x98, 0xDC, 0x00, 0x00, 0xD8, 0x86, 0x00, 0x00, 0xCF, 0x9E, 0x00, 0x01, 0x87, 0x3C, 0x02, 0x3D, 0xA0, 0x30, 0x07, 0x2D, 0xF9, 0xB0, 0x0D, 0xEC, 0x9B, 0xF0, 0x04, 0xCF, 0xDE, 0x60, 0x06, 0x07, 0xDE, 0x00, 0x3C, 0x20, 0xC0, 0x00, 0x78, 0xF9, 0xC0, 0x00, 0x61, 0x99, 0x80, 0x00, 0x39, 0x0C, 0xC0, 0x00, 0x19, 0x88, 0xE0, 0x00, 0x08, 0xD8, 0x60, 0x00, 0x38, 0xF1, 0xE0, 0x00, 0x32, 0x03, 0x00, 0x00, 0x1F, 0x03, 0x00, 0x00, 0x1B, 0x3B, 0x00, 0x00, 0x01, 0x6F, 0x00, 0x00, 0x01, 0xC6, 0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
   }
 };
+//
 
-Window <char, unsigned char> 
-window1("Cards", framebuffer[0]),
-window2("Climate control", framebuffer[1]);
+Window *window1 = new Window("Cards", framebuffer[0]);
+Window *window2 = new Window("Climate control", framebuffer[1]);
+
+Vector<Window*> menu;
+menu.push_back(window1);
 
 void draw(void)
 {
@@ -70,15 +73,15 @@ void draw(void)
   u8g.setFont(u8g_font_helvR08);
 //  u8g.setPrintPos(128/2 - u8g.getStrWidth(screenName[currentWindowNumber])/2,55);
 //  u8g.print(screenName[currentWindowNumber]);
-  u8g.setPrintPos(128/2 - u8g.getStrWidth(window1.title)/2,55);
-  u8g.print(window1.title);
+  u8g.setPrintPos(128/2 - u8g.getStrWidth(window1->title)/2,55);
+  u8g.print(window1->title);
 
   /* Draw additional info */
   u8g.setPrintPos(128 - 15,15);
   u8g.print(currentWindowNumber + 1);
   /* Draw image */
 //  u8g.drawBitmapP(48, 3, 4, 32, framebuffer[currentWindowNumber][currentFrame]);
-  u8g.drawBitmapP(48, 3, 4, 32, window1.animation[currentFrame]);
+  u8g.drawBitmapP(48, 3, 4, 32, window1->animation[currentFrame]);
 }
 
 void updateScreen()
@@ -151,7 +154,7 @@ ISR(TIMER2_A)
 }
 
 void loop() {
-  Serial.println(window1.title);
+  Serial.println(window1->title);
   if (millis() - time > frameTime)
   {
     u8g.firstPage();
